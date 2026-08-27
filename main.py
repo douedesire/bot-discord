@@ -1,4 +1,5 @@
 import os
+import csv
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -22,17 +23,48 @@ ROLE_VERIFIED_ID = 1497741720698228778      # Rôle Verified
 ROLE_GENDER_MALE_ID = 1497937296140275846    # Boy
 ROLE_GENDER_FEMALE_ID = 1497936770166296747  # Girl
 
-# Grades (1 Bac / 2 Bac / CPGE)
-ROLE_GRADE_1BAC_PC_ID = 1542096954576736267  # 1 bac pc
-ROLE_GRADE_1BAC_SM_ID = 1542096885316059256  # 1 bac sm
-ROLE_GRADE_2BAC_SM_ID = 1497943305315684384  # 2 bac sm
-ROLE_GRADE_2BAC_PC_ID = 1497943106719318146  # 2 bac pc
-ROLE_GRADE_2BAC_SVT_ID = 1497942806327463957 # 2 bac svt
-ROLE_GRADE_CPGE_MP_ID = 1542175837887926372  # CPGE MP
-ROLE_GRADE_CPGE_EST_ID = 1542105302177026118 # CPGE EST
-ROLE_GRADE_CPGE_TSI_ID = 1542105252176724059 # CPGE TSI
-ROLE_GRADE_CPGE_MPSI_ID = 1542104923343429652 # CPGE MPSI
+ROLE_GRADE_1BAC_PC_ID = 1542096954576736267  
+ROLE_GRADE_1BAC_SM_ID = 1542096885316059256  
+ROLE_GRADE_2BAC_SM_ID = 1497943305315684384  
+ROLE_GRADE_2BAC_PC_ID = 1497943106719318146  
+ROLE_GRADE_2BAC_SVT_ID = 1497942806327463957 
+ROLE_GRADE_CPGE_MP_ID = 1542175837887926372  
+ROLE_GRADE_CPGE_EST_ID = 1542105302177026118 
+ROLE_GRADE_CPGE_TSI_ID = 1542105252176724059 
+ROLE_GRADE_CPGE_MPSI_ID = 1542104923343429652 
 # ==================================================================
+
+# Fonction utilitaire pour enregistrer ou mettre à jour dans le tableau (CSV)
+def sauvegarder_donnees(user_id, gender=None, grade=None):
+    fichier = "utilisateurs.csv"
+    lignes = []
+    trouve = False
+
+    # 1. Lire le fichier s'il existe déjà
+    if os.path.exists(fichier):
+        with open(fichier, mode="r", encoding="utf-8") as f:
+            lecteur = csv.reader(f)
+            for ligne in lecteur:
+                if ligne and ligne[0] == str(user_id):
+                    trouve = True
+                    # Conserver ou mettre à jour les colonnes [ID, Gender, Grade]
+                    g = gender if gender else ligne[1]
+                    gr = grade if grade else ligne[2]
+                    lignes.append([str(user_id), g, gr])
+                else:
+                    lignes.append(ligne)
+
+    # 2. Si l'utilisateur n'existait pas, on ajoute une nouvelle ligne
+    if not trouve:
+        lignes.append([str(user_id), gender if gender else "Non défini", grade if grade else "Non défini"])
+
+    # 3. Réécrire le fichier avec les colonnes
+    with open(fichier, mode="w", newline="", encoding="utf-8") as f:
+        ecrivain = csv.writer(f)
+        # En-têtes des colonnes
+        ecrivain.writerow(["id", "gender", "grade"])
+        ecrivain.writerows(lignes)
+
 
 # 1. MENU DÉROULANT POUR LES GRADES
 class GradeSelect(discord.ui.Select):
@@ -54,7 +86,6 @@ class GradeSelect(discord.ui.Select):
         member = interaction.user
         guild = interaction.guild
         
-        # Liste de tous les rôles de grades possibles pour le nettoyage
         all_grades = [
             ROLE_GRADE_1BAC_PC_ID, ROLE_GRADE_1BAC_SM_ID,
             ROLE_GRADE_2BAC_SM_ID, ROLE_GRADE_2BAC_PC_ID, ROLE_GRADE_2BAC_SVT_ID,
@@ -62,13 +93,11 @@ class GradeSelect(discord.ui.Select):
             ROLE_GRADE_CPGE_TSI_ID, ROLE_GRADE_CPGE_MPSI_ID
         ]
 
-        # Retirer tous les anciens grades du membre
         for role_id in all_grades:
             r = guild.get_role(role_id)
             if r and r in member.roles:
                 await member.remove_roles(r)
 
-        # Assigner le nouveau rôle sélectionné
         selected = self.values[0]
         mapping = {
             "2 Bac SM": ROLE_GRADE_2BAC_SM_ID,
@@ -87,15 +116,18 @@ class GradeSelect(discord.ui.Select):
             target_role = guild.get_role(target_role_id)
             if target_role:
                 await member.add_roles(target_role)
-                await interaction.response.send_message(f"✅ Ton grade **{selected}** a bien été attribué !", ephemeral=True)
+                # Enregistre le choix du grade dans le tableau
+                sauvegarder_donnees(member.id, grade=selected)
+                await interaction.response.send_message(f"✅ Ton grade **{selected}** a bien été attribué et enregistré !", ephemeral=True)
                 return
 
         await interaction.response.send_message("❌ Erreur : Impossible d'attribuer ce grade.", ephemeral=True)
 
-# 2. FORMULAIRE MODAL (S'ouvre avec le bouton vert)
+
+# 2. FORMULAIRE MODAL POUR LE GENRE
 class VerifModal(discord.ui.Modal, title="Formulaire de Vérification"):
     genre_input = discord.ui.TextInput(
-        label="Ton Genre (Boy / Girl ou Homme / Femme)",
+        label="Ton Genre (Boy / Girl)",
         placeholder="Écris boy ou girl...",
         required=True,
         max_length=20
@@ -110,23 +142,30 @@ class VerifModal(discord.ui.Modal, title="Formulaire de Vérification"):
         r_boy = guild.get_role(ROLE_GENDER_MALE_ID)
         r_girl = guild.get_role(ROLE_GENDER_FEMALE_ID)
 
-        assigned_gender = None
+        assigned_gender_name = "Inconnu"
+        assigned_gender_role = None
+
         if "boy" in valeur_genre or "homme" in valeur_genre or "garcon" in valeur_genre:
-            assigned_gender = r_boy
+            assigned_gender_role = r_boy
+            assigned_gender_name = "Boy"
         elif "girl" in valeur_genre or "femme" in valeur_genre or "fille" in valeur_genre:
-            assigned_gender = r_girl
+            assigned_gender_role = r_girl
+            assigned_gender_name = "Girl"
 
         roles_to_add = [role_verified]
-        if assigned_gender:
-            roles_to_add.append(assigned_gender)
+        if assigned_gender_role:
+            roles_to_add.append(assigned_gender_role)
 
         try:
             await member.add_roles(*[r for r in roles_to_add if r])
-            await interaction.response.send_message("🎉 Vérification réussie ! Ton rôle Verified et ton genre ont été attribués.", ephemeral=True)
+            # Enregistre l'ID et le genre dans le tableau
+            sauvegarder_donnees(member.id, gender=assigned_gender_name)
+            await interaction.response.send_message("🎉 Vérification réussie ! Ton ID, ton genre et ton rôle ont été enregistrés.", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message("❌ Une erreur est survenue lors de l'attribution des rôles.", ephemeral=True)
+            await interaction.response.send_message("❌ Une erreur est survenue.", ephemeral=True)
 
-# 3. VUE AVEC LE BOUTON VERT ET LE MENU DÉROULANT
+
+# 3. VUE AVEC BOUTON ET MENU
 class VerifView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -140,15 +179,14 @@ class VerifView(discord.ui.View):
 async def on_ready():
     print(f"Connecté en tant que {bot.user} (ID: {bot.user.id})")
 
-# Commande slash /setup_verif
 @bot.tree.command(name="setup_verif", description="Envoie le panneau de vérification du serveur")
 @app_commands.default_permissions(administrator=True)
 async def setup_verif(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🔒 Panneau de Vérification",
         description=(
-            "1. Sélectionne ton **Grade** (2 Bac, 1 Bac ou CPGE) dans le menu déroulant.\n"
-            "2. Clique sur le bouton vert pour entrer ton **Genre** (Boy/Girl) et valider ta vérification !"
+            "1. Sélectionne ton **Grade** dans le menu déroulant.\n"
+            "2. Clique sur le bouton vert pour entrer ton **Genre** (Boy/Girl) et valider !"
         ),
         color=discord.Color.blurple()
     )
