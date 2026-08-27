@@ -13,12 +13,17 @@ class BotVerification(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        await self.tree.sync()
-        print("Commandes slash synchronisées avec succès !")
+        # Synchronisation instantanée sur ton serveur exact
+        GUILD_ID = discord.Object(id=1493595559876100166)
+        self.tree.copy_global_to(guild=GUILD_ID)
+        await self.tree.sync(guild=GUILD_ID)
+        print("Commandes synchronisées instantanément sur le serveur !")
 
 bot = BotVerification()
 
 # ==================== VRAIS IDs DE TON SERVEUR ====================
+GUILD_ID_NUM = 1493595559876100166
+
 ROLE_VERIFIED_ID = 1497741720698228778      # Rôle Verified
 ROLE_UNVERIFIED_ID = 1541221546167898292    # Rôle Unverified (à retirer)
 ROLE_GENDER_MALE_ID = 1497937296140275846    # Boy
@@ -36,7 +41,6 @@ ROLE_GRADE_CPGE_TSI_ID = 1542105252176724059
 ROLE_GRADE_CPGE_MPSI_ID = 1542104923343429652 
 # ==================================================================
 
-# Fonction pour enregistrer dans le fichier CSV (Colonnes: id, gender, grade)
 def sauvegarder_donnees(user_id, gender, grade):
     fichier = "utilisateurs.csv"
     lignes = []
@@ -66,9 +70,8 @@ async def on_ready():
     print(f"Connecté en tant que {bot.user} (ID: {bot.user.id})")
 
 
-# COMMANDE SLASH POUR VÉRIFIER UN MEMBRE EN COLLANT SON ID, SON GENRE ET SON GRADE
-@bot.tree.command(name="verifier_membre", description="Vérifie un membre en lui donnant ses rôles et en enregistrant ses infos")
-@app_commands.default_permissions(administrator=True) # Réservé aux admins/staff
+# COMMANDE SLASH POUR VÉRIFIER UN MEMBRE
+@bot.tree.command(name="verifier_membre", description="Vérifie un membre en lui donnant ses rôles (Réservé au Staff / Verif Team)")
 @app_commands.describe(
     member_id="Colle l'ID Discord du membre unverified",
     gender="Choisis le genre du membre",
@@ -89,19 +92,21 @@ async def on_ready():
     app_commands.Choice(name="CPGE EST", value="CPGE EST"),
 ])
 async def verifier_membre(interaction: discord.Interaction, member_id: str, gender: app_commands.Choice[str], grade: app_commands.Choice[str]):
+    # Vérification que l'utilisateur est Admin ou membre de l'équipe (par exemple s'il a les permissions de gérer les rôles)
+    if not interaction.user.guild_permissions.manage_roles and not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ Tu n'as pas la permission d'utiliser cette commande.", ephemeral=True)
+        return
+
     guild = interaction.guild
     
-    # 1. Trouver le membre sur le serveur grâce à son ID collé
     try:
         member = await guild.fetch_member(int(member_id))
     except Exception:
         await interaction.response.send_message("❌ Erreur : Impossible de trouver un membre avec cet ID sur le serveur.", ephemeral=True)
         return
 
-    # 2. Récupérer les rôles correspondants
     r_verified = guild.get_role(ROLE_VERIFIED_ID)
     r_unverified = guild.get_role(ROLE_UNVERIFIED_ID)
-    
     r_gender = guild.get_role(ROLE_GENDER_MALE_ID) if gender.value == "Boy" else guild.get_role(ROLE_GENDER_FEMALE_ID)
 
     grade_mapping = {
@@ -118,14 +123,12 @@ async def verifier_membre(interaction: discord.Interaction, member_id: str, gend
     r_grade = guild.get_role(grade_mapping.get(grade.value))
 
     try:
-        # Retirer le rôle Unverified et ajouter Verified, Gender, Grade
         if r_unverified and r_unverified in member.roles:
             await member.remove_roles(r_unverified)
         
         roles_to_add = [r_verified, r_gender, r_grade]
         await member.add_roles(*[r for r in roles_to_add if r])
 
-        # Enregistrer dans le fichier CSV sous forme de colonnes propres
         sauvegarder_donnees(member.id, gender.value, grade.value)
 
         await interaction.response.send_message(f"✅ Succès ! Le membre <@{member.id}> a été vérifié avec le genre **{gender.value}** et le grade **{grade.value}**.", ephemeral=True)
