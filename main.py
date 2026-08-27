@@ -13,7 +13,6 @@ class BotVerification(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # Synchronisation instantanée sur ton serveur exact
         GUILD_ID = discord.Object(id=1493595559876100166)
         self.tree.copy_global_to(guild=GUILD_ID)
         await self.tree.sync(guild=GUILD_ID)
@@ -26,6 +25,8 @@ GUILD_ID_NUM = 1493595559876100166
 
 ROLE_VERIFIED_ID = 1497741720698228778      # Rôle Verified
 ROLE_UNVERIFIED_ID = 1541221546167898292    # Rôle Unverified (à retirer)
+ROLE_VERIF_TEAM_ID = 1541221619807158304    # Rôle Verif Team (autorisé à utiliser la commande)
+
 ROLE_GENDER_MALE_ID = 1497937296140275846    # Boy
 ROLE_GENDER_FEMALE_ID = 1497936770166296747  # Girl
 
@@ -71,7 +72,7 @@ async def on_ready():
 
 
 # COMMANDE SLASH POUR VÉRIFIER UN MEMBRE
-@bot.tree.command(name="verifier_membre", description="Vérifie un membre en lui donnant ses rôles (Réservé au Staff / Verif Team)")
+@bot.tree.command(name="verifier_membre", description="Vérifie un membre en lui donnant ses rôles (Réservé à la Verif Team)")
 @app_commands.describe(
     member_id="Colle l'ID Discord du membre unverified",
     gender="Choisis le genre du membre",
@@ -92,9 +93,12 @@ async def on_ready():
     app_commands.Choice(name="CPGE EST", value="CPGE EST"),
 ])
 async def verifier_membre(interaction: discord.Interaction, member_id: str, gender: app_commands.Choice[str], grade: app_commands.Choice[str]):
-    # Vérification que l'utilisateur est Admin ou membre de l'équipe (par exemple s'il a les permissions de gérer les rôles)
-    if not interaction.user.guild_permissions.manage_roles and not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ Tu n'as pas la permission d'utiliser cette commande.", ephemeral=True)
+    # Vérifie si l'utilisateur a le rôle Verif Team ou s'il est Administrateur
+    has_role = any(role.id == ROLE_VERIF_TEAM_ID for role in interaction.user.roles)
+    is_admin = interaction.user.guild_permissions.administrator
+
+    if not has_role and not is_admin:
+        await interaction.response.send_message("❌ Tu dois faire partie de la Verif Team pour utiliser cette commande.", ephemeral=True)
         return
 
     guild = interaction.guild
