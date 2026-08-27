@@ -30,7 +30,7 @@ ROLE_VERIF_TEAM_ID = 1541221619807158304    # Rôle Verif Team (autorisé à uti
 ROLE_GENDER_MALE_ID = 1497937296140275846    # Boy
 ROLE_GENDER_FEMALE_ID = 1497936770166296747  # Girl
 
-# Grades
+# Grades existants et nouveaux grades
 ROLE_GRADE_1BAC_PC_ID = 1542096954576736267  
 ROLE_GRADE_1BAC_SM_ID = 1542096885316059256  
 ROLE_GRADE_2BAC_SM_ID = 1497943305315684384  
@@ -40,6 +40,18 @@ ROLE_GRADE_CPGE_MP_ID = 1542175837887926372
 ROLE_GRADE_CPGE_EST_ID = 1542105302177026118 
 ROLE_GRADE_CPGE_TSI_ID = 1542105252176724059 
 ROLE_GRADE_CPGE_MPSI_ID = 1542104923343429652 
+
+# Nouveaux grades ajoutés
+ROLE_GRADE_BAC_PLUS_ID = 1497937414394613771
+ROLE_GRADE_FMP_ID = 1542561524688887808
+ROLE_GRADE_2BAC_LETTRE_ID = 1542617225553510581
+ROLE_GRADE_ENSA_ID = 1542621436152381440
+ROLE_GRADE_ENSAM_ID = 1542621476958511144
+ROLE_GRADE_ENCG_ID = 1542621521456013333
+ROLE_GRADE_FMD_ID = 1542622621240393839
+ROLE_GRADE_ISPITS_ID = 1542623197306953778
+ROLE_GRADE_ENA_ID = 1542623523623932027
+ROLE_GRADE_EST_ID = 1542623663659163658
 # ==================================================================
 
 def sauvegarder_donnees(user_id, gender, grade):
@@ -85,15 +97,24 @@ async def on_ready():
     app_commands.Choice(name="2 Bac SM", value="2 Bac SM"),
     app_commands.Choice(name="2 Bac PC", value="2 Bac PC"),
     app_commands.Choice(name="2 Bac SVT", value="2 Bac SVT"),
+    app_commands.Choice(name="2 Bac Lettre", value="2 Bac Lettre"),
     app_commands.Choice(name="1 Bac SM", value="1 Bac SM"),
     app_commands.Choice(name="1 Bac PC", value="1 Bac PC"),
     app_commands.Choice(name="CPGE MP", value="CPGE MP"),
     app_commands.Choice(name="CPGE MPSI", value="CPGE MPSI"),
     app_commands.Choice(name="CPGE TSI", value="CPGE TSI"),
     app_commands.Choice(name="CPGE EST", value="CPGE EST"),
+    app_commands.Choice(name="Bac+", value="Bac+"),
+    app_commands.Choice(name="FMP", value="FMP"),
+    app_commands.Choice(name="ENSA", value="ENSA"),
+    app_commands.Choice(name="ENSAM", value="ENSAM"),
+    app_commands.Choice(name="ENCG", value="ENCG"),
+    app_commands.Choice(name="FMD", value="FMD"),
+    app_commands.Choice(name="ISPITS", value="ISPITS"),
+    app_commands.Choice(name="ENA", value="ENA"),
+    app_commands.Choice(name="EST", value="EST"),
 ])
 async def verifier_membre(interaction: discord.Interaction, member_id: str, gender: app_commands.Choice[str], grade: app_commands.Choice[str]):
-    # Vérifie si l'utilisateur a le rôle Verif Team ou s'il est Administrateur
     has_role = any(role.id == ROLE_VERIF_TEAM_ID for role in interaction.user.roles)
     is_admin = interaction.user.guild_permissions.administrator
 
@@ -117,12 +138,22 @@ async def verifier_membre(interaction: discord.Interaction, member_id: str, gend
         "2 Bac SM": ROLE_GRADE_2BAC_SM_ID,
         "2 Bac PC": ROLE_GRADE_2BAC_PC_ID,
         "2 Bac SVT": ROLE_GRADE_2BAC_SVT_ID,
+        "2 Bac Lettre": ROLE_GRADE_2BAC_LETTRE_ID,
         "1 Bac SM": ROLE_GRADE_1BAC_SM_ID,
         "1 Bac PC": ROLE_GRADE_1BAC_PC_ID,
         "CPGE MP": ROLE_GRADE_CPGE_MP_ID,
         "CPGE MPSI": ROLE_GRADE_CPGE_MPSI_ID,
         "CPGE TSI": ROLE_GRADE_CPGE_TSI_ID,
         "CPGE EST": ROLE_GRADE_CPGE_EST_ID,
+        "Bac+": ROLE_GRADE_BAC_PLUS_ID,
+        "FMP": ROLE_GRADE_FMP_ID,
+        "ENSA": ROLE_GRADE_ENSA_ID,
+        "ENSAM": ROLE_GRADE_ENSAM_ID,
+        "ENCG": ROLE_GRADE_ENCG_ID,
+        "FMD": ROLE_GRADE_FMD_ID,
+        "ISPITS": ROLE_GRADE_ISPITS_ID,
+        "ENA": ROLE_GRADE_ENA_ID,
+        "EST": ROLE_GRADE_EST_ID,
     }
     r_grade = guild.get_role(grade_mapping.get(grade.value))
 
