@@ -54,7 +54,7 @@ ROLE_GRADE_ENA_ID = 1542623523623932027
 ROLE_GRADE_EST_ID = 1542623663659163658
 # ==================================================================
 
-def sauvegarder_donnees(user_id, gender, grade):
+def sauvegarder_donnees(user_id, gender, grade, verifier_id):
     fichier = "utilisateurs.csv"
     lignes = []
     trouve = False
@@ -63,18 +63,19 @@ def sauvegarder_donnees(user_id, gender, grade):
         with open(fichier, mode="r", encoding="utf-8") as f:
             lecteur = csv.reader(f)
             for ligne in lecteur:
+                # On ignore l'ancienne ligne d'en-tête ou les lignes mal formatées
                 if ligne and ligne[0] == str(user_id):
                     trouve = True
-                    lignes.append([str(user_id), gender, grade])
-                else:
+                    lignes.append([str(user_id), gender, grade, str(verifier_id)])
+                elif ligne and ligne[0] != "id":
                     lignes.append(ligne)
 
     if not trouve:
-        lignes.append([str(user_id), gender, grade])
+        lignes.append([str(user_id), gender, grade, str(verifier_id)])
 
     with open(fichier, mode="w", newline="", encoding="utf-8") as f:
         ecrivain = csv.writer(f)
-        ecrivain.writerow(["id", "gender", "grade"])
+        ecrivain.writerow(["id", "gender", "grade", "verifier_id"])
         ecrivain.writerows(lignes)
 
 
@@ -164,12 +165,60 @@ async def verifier_membre(interaction: discord.Interaction, member_id: str, gend
         roles_to_add = [r_verified, r_gender, r_grade]
         await member.add_roles(*[r for r in roles_to_add if r])
 
-        sauvegarder_donnees(member.id, gender.value, grade.value)
+        # Enregistrement avec l'ID du modérateur/vérificateur
+        sauvegarder_donnees(member.id, gender.value, grade.value, interaction.user.id)
 
         await interaction.response.send_message(f"✅ Succès ! Le membre <@{member.id}> a été vérifié avec le genre **{gender.value}** et le grade **{grade.value}**.", ephemeral=True)
     
     except Exception as e:
         await interaction.response.send_message(f"❌ Une erreur est survenue lors de l'attribution des rôles : {e}", ephemeral=True)
+
+
+# COMMANDE SLASH POUR AFFICHER LE TOP DES VÉRIFICATEURS
+@bot.tree.command(name="topverificators", description="Affiche le classement des membres de la Verif Team qui vérifient le plus")
+async def topverificators(interaction: discord.Interaction):
+    fichier = "utilisateurs.csv"
+
+    if not os.path.exists(fichier):
+        await interaction.response.send_message("❌ Aucune donnée de vérification trouvée pour le moment.", ephemeral=True)
+        return
+
+    compteur_verifs = {}
+
+    # Lecture du fichier CSV et comptage des vérifications par vérificateur
+    with open(fichier, mode="r", encoding="utf-8") as f:
+        lecteur = csv.reader(f)
+        for ligne in lecteur:
+            # Vérifie que la ligne a bien 4 colonnes et ignore l'en-tête
+            if len(ligne) == 4 and ligne[0] != "id":
+                verifier_id = ligne[3]
+                compteur_verifs[verifier_id] = compteur_verifs.get(verifier_id, 0) + 1
+
+    if not compteur_verifs:
+        await interaction.response.send_message("❌ Aucun classement disponible pour le moment.", ephemeral=True)
+        return
+
+    # Tri du dictionnaire du plus grand au plus petit nombre de vérifications
+    classement = sorted(compteur_verifs.items(), key=lambda x: x[1], reverse=True)
+
+    embed = discord.Embed(
+        title="🏆 Top des Vérificateurs",
+        description="Voici les membres qui ont effectué le plus de vérifications sur le serveur :",
+        color=discord.Color.gold()
+    )
+
+    description_texte = ""
+    medailles = ["🥇", "🥈", "🥉"]
+
+    for index, (verifier_id, count) in enumerate(classement[:10]):  # Top 10 maximum
+        symbole = medailles[index] if index < 3 else f"**`#{index + 1}`**"
+        description_texte += f"{symbole} <@{verifier_id}> — **{count}** vérifications\n"
+
+    embed.description = description_texte
+    embed.set_footer(text=fDemandé par {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
+
+    await interaction.response.send_message(embed=embed)
+
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 if TOKEN is None:
