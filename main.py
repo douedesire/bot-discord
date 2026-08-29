@@ -63,7 +63,6 @@ def sauvegarder_donnees(user_id, gender, grade, verifier_id):
         with open(fichier, mode="r", encoding="utf-8") as f:
             lecteur = csv.reader(f)
             for ligne in lecteur:
-                # On ignore l'ancienne ligne d'en-tête ou les lignes mal formatées
                 if ligne and ligne[0] == str(user_id):
                     trouve = True
                     lignes.append([str(user_id), gender, grade, str(verifier_id)])
@@ -165,7 +164,6 @@ async def verifier_membre(interaction: discord.Interaction, member_id: str, gend
         roles_to_add = [r_verified, r_gender, r_grade]
         await member.add_roles(*[r for r in roles_to_add if r])
 
-        # Enregistrement avec l'ID du modérateur/vérificateur
         sauvegarder_donnees(member.id, gender.value, grade.value, interaction.user.id)
 
         await interaction.response.send_message(f"✅ Succès ! Le membre <@{member.id}> a été vérifié avec le genre **{gender.value}** et le grade **{grade.value}**.", ephemeral=True)
@@ -185,11 +183,9 @@ async def topverificators(interaction: discord.Interaction):
 
     compteur_verifs = {}
 
-    # Lecture du fichier CSV et comptage des vérifications par vérificateur
     with open(fichier, mode="r", encoding="utf-8") as f:
         lecteur = csv.reader(f)
         for ligne in lecteur:
-            # Vérifie que la ligne a bien 4 colonnes et ignore l'en-tête
             if len(ligne) == 4 and ligne[0] != "id":
                 verifier_id = ligne[3]
                 compteur_verifs[verifier_id] = compteur_verifs.get(verifier_id, 0) + 1
@@ -198,7 +194,6 @@ async def topverificators(interaction: discord.Interaction):
         await interaction.response.send_message("❌ Aucun classement disponible pour le moment.", ephemeral=True)
         return
 
-    # Tri du dictionnaire du plus grand au plus petit nombre de vérifications
     classement = sorted(compteur_verifs.items(), key=lambda x: x[1], reverse=True)
 
     embed = discord.Embed(
@@ -210,12 +205,12 @@ async def topverificators(interaction: discord.Interaction):
     description_texte = ""
     medailles = ["🥇", "🥈", "🥉"]
 
-    for index, (verifier_id, count) in enumerate(classement[:10]):  # Top 10 maximum
+    for index, (verifier_id, count) in enumerate(classement[:10]):
         symbole = medailles[index] if index < 3 else f"**`#{index + 1}`**"
         description_texte += f"{symbole} <@{verifier_id}> — **{count}** vérifications\n"
 
     embed.description = description_texte
-    embed.set_footer(text=fDemandé par {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
+    embed.set_footer(text=f"Demandé par {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
 
     await interaction.response.send_message(embed=embed)
 
